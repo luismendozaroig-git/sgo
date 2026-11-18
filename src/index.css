@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+body { @apply bg-slate-100 text-slate-800 antialiased font-sans; }
+.inp { @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20; }
+.btn { @apply rounded-lg px-3.5 py-2 text-sm font-medium transition; }
+.btn-dark { @apply bg-slate-900 text-white hover:bg-slate-800; }

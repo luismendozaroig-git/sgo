@@ -52,6 +52,7 @@ function Main({ session, toast }) {
   const [live, setLive] = useState(false)
   const { rows: cfgRows } = useTable('sgo_config')
   const cfg = cfgRows[0] || {}
+  const { rows: provs } = useTable('sgo_suppliers', 'name')
 
   useEffect(() => {
     supabase.from('sgo_users').select('*').eq('id', session.user.id).single().then(({ data }) => setMe(data))
@@ -61,8 +62,18 @@ function Main({ session, toast }) {
 
   const role = me?.role || 'Consultas'
   const canEdit = role !== 'Consultas', canDelete = role === 'Admin'
-  const catalogs = cruds(Number(cfg.usd_rate) || 7500)
+  const catalogs = cruds(Number(cfg.usd_rate) || 7500, provs)
   const cur = NAV.find(n => n[0] === view)
+
+  if (me && !me.active) return (
+    <div className="grid min-h-screen place-items-center bg-slate-900 p-4">
+      <div className="max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
+        <h1 className="font-semibold">Cuenta pendiente de aprobación</h1>
+        <p className="mt-2 text-sm text-slate-500">El Administrador debe activar tu acceso. Cuando lo haga, vuelve a ingresar.</p>
+        <button className="btn btn-dark mt-4" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -70,13 +81,13 @@ function Main({ session, toast }) {
         <div className="flex h-14 items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3">
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500 text-slate-900"><HardHat size={18} /></div>
-            <span className="font-semibold">{cfg.company_name || 'SGO'}</span>
-            <span className={'hidden items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium sm:flex ' + (live ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300')}>
-              <Database size={12} />{live ? 'Supabase Conectado (Realtime)' : 'Sincronizando…'}
+            <span className="max-w-[9rem] truncate font-semibold sm:max-w-none">{cfg.company_name || 'SGO'}</span>
+            <span className={'flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ' + (live ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300')}>
+              <Database size={12} /><span className="hidden sm:inline">{live ? 'Supabase Conectado (Realtime)' : 'Sincronizando…'}</span>
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs">
-            <div className="text-right"><p className="font-medium">{me?.name || session.user.email}</p><p className="text-amber-400">{role}</p></div>
+            <div className="hidden text-right sm:block"><p className="font-medium">{me?.name || session.user.email}</p><p className="text-amber-400">{role}</p></div>
             <button title="Cerrar sesión" className="rounded-lg p-2 hover:bg-slate-800" onClick={() => supabase.auth.signOut()}><LogOut size={16} /></button>
           </div>
         </div>

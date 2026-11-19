@@ -1,7 +1,7 @@
 import { pyg, usd } from '../lib/format'
 export const CATS = ['Materiales', 'Mano de Obra', 'Maquinarias']
 // Cada módulo de catálogo se define aquí: tabla, columnas y campos del formulario.
-export const cruds = rate => ({
+export const cruds = (rate, suppliers = []) => ({
   clients: {
     table: 'sgo_clients', one: 'cliente',
     cols: [{ k: 'name', l: 'Nombre' }, { k: 'ruc', l: 'RUC' }, { k: 'contact', l: 'Contacto' }, { k: 'phone', l: 'Teléfono' }, { k: 'email', l: 'Correo' }],
@@ -17,9 +17,10 @@ export const cruds = rate => ({
   },
   insumos: {
     table: 'sgo_insumos', one: 'insumo', chips: CATS, order: 'code',
-    cols: [{ k: 'code', l: 'Código' }, { k: 'name', l: 'Descripción' }, { k: 'category', l: 'Categoría' }, { k: 'unit', l: 'Unidad' },
+    cols: [{ k: 'code', l: 'Código' }, { k: 'name', l: 'Descripción' }, { k: 'category', l: 'Categoría' }, { k: 'unit', l: 'Unidad' }, { k: 'supplier_id', l: 'Proveedor', f: r => suppliers.find(s => s.id === r.supplier_id)?.name || '—' },
       { k: 'price_pyg', l: 'Precio ₲', num: true, f: r => pyg(r.price_pyg) }, { k: 'usd', l: 'USD', num: true, f: r => usd(r.price_pyg / rate) }, { k: 'price_updated', l: 'Actualizado' }],
     fields: [{ name: 'code', label: 'Código' }, { name: 'name', label: 'Descripción', required: true }, { name: 'category', label: 'Categoría', type: 'select', options: CATS },
-      { name: 'unit', label: 'Unidad (bolsa, kg, m3, jornal…)' }, { name: 'price_pyg', label: 'Precio unitario (₲)', type: 'number' }]
+      { name: 'unit', label: 'Unidad (bolsa, kg, m3, jornal…)' },
+      { name: 'supplier_id', label: 'Proveedor', type: 'select', blank: true, options: suppliers.map(s => ({ v: s.id, l: s.name })) }, { name: 'price_pyg', label: 'Precio unitario (₲)', type: 'number' }]
   }
 })

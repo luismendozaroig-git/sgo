@@ -142,7 +142,7 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
       {pdf && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-900/60 p-4 print:static print:bg-white print:p-0">
           <div className="mx-auto mb-3 flex max-w-3xl justify-end gap-2 print:hidden"><button className="btn bg-white hover:bg-slate-100" onClick={() => setPdf(false)}>Cerrar</button><button className="btn bg-amber-500 text-slate-900 hover:bg-amber-400" onClick={() => window.print()}>Imprimir / Guardar PDF</button></div>
-          <div id="print-area" className="mx-auto max-w-3xl bg-white p-10 text-[13px] text-slate-800 shadow-xl">
+          <div id="print-area" className="mx-auto max-w-3xl overflow-x-auto bg-white p-5 text-[13px] sm:p-10 text-slate-800 shadow-xl">
             <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
               <div className="flex items-center gap-3">{cfg.logo_url && <img src={cfg.logo_url} alt="" className="h-14" />}<div><p className="text-lg font-bold">{cfg.company_name}</p><p className="text-xs text-slate-500">RUC {cfg.ruc} · {cfg.address}</p></div></div>
               <div className="text-right"><p className="font-bold">{d.number}</p><p className="text-xs text-slate-500">Fecha {d.date} · Validez {d.validity_days} días</p></div>

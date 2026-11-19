@@ -49,8 +49,8 @@ export default function Crud({ cfg, canEdit, canDelete, toast }) {
               <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                 {cfg.cols.map(c => <td key={c.k} className={'whitespace-nowrap px-4 py-3 ' + (c.num ? 'text-right tabular-nums' : '')}>{c.f ? c.f(r) : (r[c.k] ?? '—')}</td>)}
                 <td className="whitespace-nowrap px-4 py-3 text-right">
-                  {canEdit && <button title="Editar" className="rounded p-1.5 text-slate-500 hover:bg-slate-100" onClick={() => setEdit(r)}><Pencil size={15} /></button>}
-                  {canDelete && <button title="Eliminar" className="rounded p-1.5 text-rose-500 hover:bg-rose-50" onClick={() => del(r)}><Trash2 size={15} /></button>}
+                  {canEdit && <button title="Editar" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={() => setEdit(r)}><Pencil size={15} /></button>}
+                  {canDelete && <button title="Eliminar" className="rounded p-2 text-rose-500 hover:bg-rose-50" onClick={() => del(r)}><Trash2 size={15} /></button>}
                 </td>
               </tr>
             ))}
@@ -61,14 +61,14 @@ export default function Crud({ cfg, canEdit, canDelete, toast }) {
 
       {edit && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm">
-          <form onSubmit={save} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-xl">
+          <form onSubmit={save} className="max-h-[92vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="font-semibold">{edit.id ? 'Editar' : 'Nuevo'} {cfg.one}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {cfg.fields.map(f => (
                 <label key={f.name} className={'block ' + (f.wide ? 'sm:col-span-2' : '')}>
                   <span className="mb-1 block text-xs font-medium text-slate-500">{f.label}</span>
                   {f.type === 'select'
-                    ? <select className="inp" name={f.name} defaultValue={edit[f.name] || f.options[0]}>{f.options.map(o => <option key={o}>{o}</option>)}</select>
+                    ? <select className="inp" name={f.name} defaultValue={edit[f.name] ?? (f.blank ? '' : f.options[0])}>{f.blank && <option value="">— Sin asignar —</option>}{f.options.map(o => typeof o === 'string' ? <option key={o}>{o}</option> : <option key={o.v} value={o.v}>{o.l}</option>)}</select>
                     : <input className="inp" name={f.name} type={f.type || 'text'} step="any" required={f.required} defaultValue={edit[f.name] ?? ''} />}
                 </label>
               ))}

@@ -70,7 +70,7 @@ export default function Obras({ canEdit, canDelete, toast }) {
         </div>
 
         <div className="lg:col-span-2">
-          <div className="sticky top-32 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-hidden lg:sticky lg:top-32 rounded-xl border border-slate-200 bg-white">
             {sel ? <>
               {sel.lat != null && sel.lng != null
                 ? <iframe title="Mapa" className="h-64 w-full border-0" loading="lazy" src={`https://maps.google.com/maps?q=${sel.lat},${sel.lng}&z=15&output=embed`} />

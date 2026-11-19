@@ -5,6 +5,8 @@ import { useTable } from './hooks/useTable'
 import Dashboard from './views/Dashboard.jsx'
 import Crud from './views/Crud.jsx'
 import Obras from './views/Obras.jsx'
+import APU from './views/APU.jsx'
+import Ejecucion from './views/Ejecucion.jsx'
 import { cruds } from './views/cruds.js'
 
 const NAV = [
@@ -88,6 +90,8 @@ function Main({ session, toast }) {
         <h1 className="mb-6 text-xl font-semibold tracking-tight">{cur[1]}</h1>
         {view === 'dashboard' ? <Dashboard />
           : view === 'obras' ? <Obras canEdit={canEdit} canDelete={canDelete} toast={toast} />
+          : view === 'apu' ? <APU canEdit={canEdit} canDelete={canDelete} toast={toast} />
+          : view === 'execution' ? <Ejecucion canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : catalogs[view] ? <Crud key={view} cfg={catalogs[view]} canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : <div className="grid place-items-center rounded-xl border border-dashed border-slate-300 bg-white p-16 text-center"><p className="font-medium">{cur[1]}</p><p className="mt-1 text-sm text-slate-400">Módulo en desarrollo — próxima etapa</p></div>}
       </main>

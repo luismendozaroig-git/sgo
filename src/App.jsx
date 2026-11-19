@@ -6,6 +6,7 @@ import Dashboard from './views/Dashboard.jsx'
 import Crud from './views/Crud.jsx'
 import Obras from './views/Obras.jsx'
 import APU from './views/APU.jsx'
+import Presupuestos from './views/Presupuestos.jsx'
 import Ejecucion from './views/Ejecucion.jsx'
 import { cruds } from './views/cruds.js'
 
@@ -90,6 +91,7 @@ function Main({ session, toast }) {
         <h1 className="mb-6 text-xl font-semibold tracking-tight">{cur[1]}</h1>
         {view === 'dashboard' ? <Dashboard />
           : view === 'obras' ? <Obras canEdit={canEdit} canDelete={canDelete} toast={toast} />
+          : view === 'budgets' ? <Presupuestos canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : view === 'apu' ? <APU canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : view === 'execution' ? <Ejecucion canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : catalogs[view] ? <Crud key={view} cfg={catalogs[view]} canEdit={canEdit} canDelete={canDelete} toast={toast} />

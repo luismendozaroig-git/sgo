@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import { useTable } from './hooks/useTable'
 import Dashboard from './views/Dashboard.jsx'
 import Crud from './views/Crud.jsx'
+import Obras from './views/Obras.jsx'
 import { cruds } from './views/cruds.js'
 
 const NAV = [
@@ -86,6 +87,7 @@ function Main({ session, toast }) {
       <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
         <h1 className="mb-6 text-xl font-semibold tracking-tight">{cur[1]}</h1>
         {view === 'dashboard' ? <Dashboard />
+          : view === 'obras' ? <Obras canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : catalogs[view] ? <Crud key={view} cfg={catalogs[view]} canEdit={canEdit} canDelete={canDelete} toast={toast} />
           : <div className="grid place-items-center rounded-xl border border-dashed border-slate-300 bg-white p-16 text-center"><p className="font-medium">{cur[1]}</p><p className="mt-1 text-sm text-slate-400">Módulo en desarrollo — próxima etapa</p></div>}
       </main>

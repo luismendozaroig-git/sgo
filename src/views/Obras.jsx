@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import readXlsxFile from 'read-excel-file'
 import { supabase } from '../lib/supabase'
 import { useTable } from '../hooks/useTable'
 import { pyg } from '../lib/format'
@@ -36,6 +37,49 @@ export default function Obras({ canEdit, canDelete, toast }) {
     if (!error) setSelId(null)
     toast(error ? error.message : 'Obra eliminada', !!error)
   }
+  const fecha = v => {
+    if (!v) return null
+    if (v instanceof Date) return v.toISOString().slice(0, 10)
+    const s = String(v).trim(), m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null
+  }
+  const entero = v => (typeof v === 'number' ? v : Number(String(v ?? '').replace(/\D/g, ''))) || 0
+  const coord = v => { const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.')); return v === null || v === '' || v === undefined || Number.isNaN(n) ? null : n }
+  const pct = v => Math.min(100, Math.max(0, Number(String(v ?? '').replace(',', '.')) || 0))
+  const importar = async e => {
+    const f = e.target.files[0]; e.target.value = ''
+    if (!f) return
+    try {
+      const filas = (await readXlsxFile(f)).slice(1).filter(r => r[1]) // se omite el encabezado; el nombre es obligatorio
+      if (!filas.length) return toast('No se encontraron obras. Revisa que use la plantilla.', true)
+      // 1) Clientes: se buscan por nombre y los que no existen se crean
+      const norm = s => String(s).trim().toLowerCase()
+      const ids = Object.fromEntries(clientes.map(c => [norm(c.name), c.id]))
+      const faltan = [...new Set(filas.map(r => r[2] && String(r[2]).trim()).filter(n => n && !ids[norm(n)]))]
+      if (faltan.length) {
+        const { data, error } = await supabase.from('sgo_clients').insert(faltan.map(name => ({ name }))).select('id,name')
+        if (error) return toast('No se pudieron crear los clientes: ' + error.message, true)
+        data.forEach(c => { ids[norm(c.name)] = c.id })
+      }
+      // 2) Obras: código existente = se actualiza; código vacío = se genera
+      const usados = new Set(obras.map(o => o.code)), anio = new Date().getFullYear()
+      let n = obras.length, nuevas = 0
+      const lista = filas.map(r => {
+        let code = r[0] ? String(r[0]).trim() : ''
+        while (!code) { n++; const c = 'OB-' + anio + '-' + String(n).padStart(2, '0'); if (!usados.has(c)) code = c }
+        if (!usados.has(code)) nuevas++
+        usados.add(code)
+        const status = ['En Proceso', 'Finalizada', 'Pausada'].find(s => s.toLowerCase() === String(r[7] ?? '').trim().toLowerCase()) || 'En Proceso'
+        const budget = entero(r[6]), real = pct(r[12])
+        return { code, name: String(r[1]).trim(), client_id: r[2] ? ids[norm(r[2])] : null, address: r[3] ? String(r[3]) : null, lat: coord(r[4]), lng: coord(r[5]),
+          budget_pyg: budget, status, supervisor: r[8] ? String(r[8]) : null, start_date: fecha(r[9]), end_date: fecha(r[10]),
+          planned_progress: pct(r[11]), real_progress: real, executed_pyg: Math.round(budget * real / 100) }
+      })
+      const { error } = await supabase.from('sgo_obras').upsert(lista, { onConflict: 'code' })
+      if (error) return toast(error.message, true)
+      toast(`${lista.length} obra(s): ${nuevas} nueva(s), ${lista.length - nuevas} actualizada(s)` + (faltan.length ? ` · ${faltan.length} cliente(s) creado(s)` : ''))
+    } catch (err) { toast('No se pudo leer el Excel: ' + err.message, true) }
+  }
   const nuevoCodigo = 'OB-' + new Date().getFullYear() + '-' + String(obras.length + 1).padStart(2, '0')
   const campo = (l, n, t = 'text', wide = false, req = false) => (
     <label key={n} className={'block ' + (wide ? 'sm:col-span-2' : '')}>
@@ -48,7 +92,9 @@ export default function Obras({ canEdit, canDelete, toast }) {
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <input className="inp max-w-xs" placeholder="Buscar obra…" value={q} onChange={e => setQ(e.target.value)} />
-        {canEdit && <button className="btn btn-dark ml-auto flex items-center gap-1.5" onClick={() => setEdit({ lat: -25.2822, lng: -57.6014, status: 'En Proceso' })}><Plus size={16} />Nueva obra</button>}
+        {canEdit && <a className="ml-auto text-xs text-slate-400 underline" href="/plantillas/plantilla-obras.xlsx" download>Plantilla de Excel</a>}
+        {canEdit && <label className="btn flex cursor-pointer items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50"><FileSpreadsheet size={16} />Importar Excel<input type="file" accept=".xlsx" className="hidden" onChange={importar} /></label>}
+        {canEdit && <button className="btn btn-dark flex items-center gap-1.5" onClick={() => setEdit({ lat: -25.2822, lng: -57.6014, status: 'En Proceso' })}><Plus size={16} />Nueva obra</button>}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">

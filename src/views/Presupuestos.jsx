@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, FileSpreadsheet, Plus, Printer, Trash2 } from 'lucide-react'
+import { Check, Eye, FileSpreadsheet, Pencil, Plus, Printer, Trash2 } from 'lucide-react'
 import readXlsxFile from 'read-excel-file'
 import { supabase } from '../lib/supabase'
 import { useTable } from '../hooks/useTable'
@@ -19,6 +19,7 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
   const cfg = cfgR[0] || {}
   const [d, setD] = useState(null)
   const [pdf, setPdf] = useState(false)
+  const [pdfList, setPdfList] = useState(false) // true si la vista PDF se abrió desde la lista
   const imap = useMemo(() => Object.fromEntries(insumos.map(i => [i.id, i])), [insumos])
   const amap = useMemo(() => Object.fromEntries(apus.map(a => [a.id, a])), [apus])
 
@@ -67,6 +68,12 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
     setD(null); toast(status === 'Aprobado' ? 'Presupuesto aprobado: precios congelados' : 'Presupuesto guardado')
   }
   const aprobar = () => { if (confirm('Al aprobar se congelan los precios y ya no se podrá editar. ¿Continuar?')) save('Aprobado') }
+  const reabrir = async () => {
+    if (!confirm('El presupuesto volverá a Borrador y sus rubros APU usarán de nuevo los precios actuales. ¿Continuar?')) return
+    const { error } = await supabase.from('sgo_budgets').update({ status: 'Borrador' }).eq('id', d.id)
+    if (error) return toast(error.message, true)
+    setD({ ...d, status: 'Borrador' }); toast('Presupuesto reabierto como borrador')
+  }
   const del = async b => {
     if (!confirm('¿Eliminar el presupuesto ' + b.number + '?')) return
     const { error } = await supabase.from('sgo_budgets').delete().eq('id', b.id)
@@ -79,18 +86,23 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
       {canEdit && <div className="mb-4 flex flex-wrap items-center justify-end gap-2"><a className="mr-auto text-xs text-slate-400 underline" href="/plantillas/plantilla-presupuesto.xlsx" download>Plantilla de Excel</a>
         <label className="btn flex cursor-pointer items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50"><FileSpreadsheet size={16} />Importar Excel<input type="file" accept=".xlsx" className="hidden" onChange={importar} /></label>
         <button className="btn btn-dark flex items-center gap-1.5" onClick={() => nuevo()}><Plus size={16} />Nuevo presupuesto</button></div>}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="max-h-[calc(100dvh-17rem)] min-h-[12rem] overflow-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-left text-xs font-medium text-slate-500"><tr><th className="px-4 py-3">Número</th><th className="px-4 py-3">Obra</th><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3 text-right">Total (IVA incl.)</th></tr></thead>
+          <thead className="text-left text-xs font-medium text-slate-500"><tr>{['Número', 'Obra', 'Fecha', 'Estado'].map(t => <th key={t} className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 px-4 py-3">{t}</th>)}<th className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 px-4 py-3 text-right">Total (IVA incl.)</th><th className="sticky right-0 top-0 z-20 border-b border-slate-200 bg-slate-50" /></tr></thead>
           <tbody>
             {buds.map(b => (
-              <tr key={b.id} onClick={() => setD({ ...b, items: b.items || [] })} className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50">
+              <tr key={b.id} onClick={() => setD({ ...b, items: b.items || [] })} className="group cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium">{b.number}</td><td className="px-4 py-3">{obraName(b.obra_id)}</td><td className="px-4 py-3">{b.date}</td>
                 <td className="px-4 py-3"><span className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + BADGE[b.status]}>{b.status}</span></td>
                 <td className="px-4 py-3 text-right tabular-nums">{pyg(totalOf(b))}</td>
+                <td className="sticky right-0 whitespace-nowrap bg-white px-2 py-3 text-right shadow-[-10px_0_8px_-8px_rgba(15,23,42,0.12)] group-hover:bg-slate-50" onClick={e => e.stopPropagation()}>
+                  <button title="Visualizar / PDF" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={() => { setD({ ...b, items: b.items || [] }); setPdf(true); setPdfList(true) }}><Eye size={15} /></button>
+                  {canEdit && b.status === 'Borrador' && <button title="Editar" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={() => setD({ ...b, items: b.items || [] })}><Pencil size={15} /></button>}
+                  {canDelete && <button title="Eliminar" className="rounded p-2 text-rose-500 hover:bg-rose-50" onClick={() => del(b)}><Trash2 size={15} /></button>}
+                </td>
               </tr>
             ))}
-            {!buds.length && <tr><td colSpan={5} className="p-10 text-center text-slate-400">Todavía no hay presupuestos</td></tr>}
+            {!buds.length && <tr><td colSpan={6} className="p-10 text-center text-slate-400">Todavía no hay presupuestos</td></tr>}
           </tbody>
         </table>
       </div>
@@ -153,6 +165,7 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
         <div className="flex flex-wrap gap-2">
           <button className="btn hover:bg-slate-100" onClick={() => setD(null)}>{edit ? 'Cancelar' : 'Volver'}</button>
           {d.id && <button className="btn flex items-center gap-1.5 border border-slate-200 hover:bg-slate-50" onClick={() => setPdf(true)}><Printer size={14} />Vista PDF</button>}
+          {canDelete && d.id && d.status === 'Aprobado' && <button className="btn border border-slate-200 hover:bg-slate-50" onClick={reabrir}>Reabrir como borrador</button>}
           {edit && <button className="btn border border-slate-200 hover:bg-slate-50" onClick={() => save()}>Guardar borrador</button>}
           {edit && d.id && <button className="btn flex items-center gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700" onClick={aprobar}><Check size={14} />Aprobar</button>}
         </div>
@@ -160,7 +173,7 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
 
       {pdf && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-900/60 p-4 print:static print:bg-white print:p-0">
-          <div className="mx-auto mb-3 flex max-w-3xl justify-end gap-2 print:hidden"><button className="btn bg-white hover:bg-slate-100" onClick={() => setPdf(false)}>Cerrar</button><button className="btn bg-amber-500 text-slate-900 hover:bg-amber-400" onClick={() => window.print()}>Imprimir / Guardar PDF</button></div>
+          <div className="mx-auto mb-3 flex max-w-3xl justify-end gap-2 print:hidden"><button className="btn bg-white hover:bg-slate-100" onClick={() => { setPdf(false); if (pdfList) { setD(null); setPdfList(false) } }}>Cerrar</button><button className="btn bg-amber-500 text-slate-900 hover:bg-amber-400" onClick={() => window.print()}>Imprimir / Guardar PDF</button></div>
           <div id="print-area" className="mx-auto max-w-3xl overflow-x-auto bg-white p-5 text-[13px] sm:p-10 text-slate-800 shadow-xl">
             <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
               <div className="flex items-center gap-3">{cfg.logo_url && <img src={cfg.logo_url} alt="" className="h-14" />}<div><p className="text-lg font-bold">{cfg.company_name}</p><p className="text-xs text-slate-500">RUC {cfg.ruc} · {cfg.address}</p></div></div>

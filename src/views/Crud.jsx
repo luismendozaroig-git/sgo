@@ -39,16 +39,16 @@ export default function Crud({ cfg, canEdit, canDelete, toast }) {
         {canEdit && <button className="btn btn-dark ml-auto flex items-center gap-1.5" onClick={() => setEdit({})}><Plus size={16} />Nuevo {cfg.one}</button>}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="max-h-[calc(100dvh-17rem)] min-h-[12rem] overflow-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-left text-xs font-medium text-slate-500">
-            <tr>{cfg.cols.map(c => <th key={c.k} className={'px-4 py-3 ' + (c.num ? 'text-right' : '')}>{c.l}</th>)}<th /></tr>
+          <thead className="text-left text-xs font-medium text-slate-500">
+            <tr>{cfg.cols.map(c => <th key={c.k} className={'sticky top-0 z-10 border-b border-slate-200 bg-slate-50 px-4 py-3 ' + (c.num ? 'text-right' : '')}>{c.l}</th>)}<th className="sticky right-0 top-0 z-20 border-b border-slate-200 bg-slate-50" /></tr>
           </thead>
           <tbody>
             {list.map(r => (
-              <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                {cfg.cols.map(c => <td key={c.k} className={'whitespace-nowrap px-4 py-3 ' + (c.num ? 'text-right tabular-nums' : '')}>{c.f ? c.f(r) : (r[c.k] ?? '—')}</td>)}
-                <td className="whitespace-nowrap px-4 py-3 text-right">
+              <tr key={r.id} className="group border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                {cfg.cols.map(c => <td key={c.k} className={'px-4 py-3 ' + (c.num ? 'whitespace-nowrap text-right tabular-nums' : 'min-w-[7rem] max-w-[18rem] break-words')}>{c.f ? c.f(r) : (r[c.k] ?? '—')}</td>)}
+                <td className="sticky right-0 whitespace-nowrap bg-white px-2 py-3 text-right shadow-[-10px_0_8px_-8px_rgba(15,23,42,0.12)] group-hover:bg-slate-50">
                   {canEdit && <button title="Editar" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={() => setEdit(r)}><Pencil size={15} /></button>}
                   {canDelete && <button title="Eliminar" className="rounded p-2 text-rose-500 hover:bg-rose-50" onClick={() => del(r)}><Trash2 size={15} /></button>}
                 </td>

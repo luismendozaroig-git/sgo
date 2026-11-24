@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Check, Plus, Printer, Trash2 } from 'lucide-react'
+import { Check, FileSpreadsheet, Plus, Printer, Trash2 } from 'lucide-react'
+import readXlsxFile from 'read-excel-file'
 import { supabase } from '../lib/supabase'
 import { useTable } from '../hooks/useTable'
 import { apuCost } from '../lib/apu'
@@ -27,11 +28,27 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
   const totalOf = b => subOf(b) * (1 + (Number(b.vat_rate) || 0) / 100)
   const obraName = id => obras.find(o => o.id === id)?.name || '—'
 
-  const nuevo = () => {
+  const nuevo = (items = []) => {
     const y = new Date().getFullYear(), pre = `PRES-${y}-`
     const seqs = buds.filter(b => b.number?.startsWith(pre)).map(b => parseInt(b.number.slice(pre.length)) || 0)
     const n = Math.max((Number(cfg.budget_start?.[y]) || 1) - 1, ...seqs) + 1
-    setD({ number: pre + String(n).padStart(3, '0'), obra_id: '', date: today(), validity_days: 30, vat_rate: cfg.vat_rate ?? 10, items: [], status: 'Borrador' })
+    setD({ number: pre + String(n).padStart(3, '0'), obra_id: '', date: today(), validity_days: 30, vat_rate: cfg.vat_rate ?? 10, items, status: 'Borrador' })
+  }
+  const num = v => (typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) || 0)
+  const importar = async e => {
+    const f = e.target.files[0]; e.target.value = ''
+    if (!f) return
+    try {
+      const rows = (await readXlsxFile(f)).slice(1) // se omite la fila de encabezado
+      const porCodigo = Object.fromEntries(apus.filter(a => a.code).map(a => [a.code.trim().toUpperCase(), a]))
+      const items = rows.filter(r => r[1] || r[0]).map(([rubro, desc, unit, qty, precio]) => {
+        const a = !precio && rubro ? porCodigo[String(rubro).trim().toUpperCase()] : null
+        return a ? { source: 'APU', apu_id: a.id, rubro: a.code, description: a.description, unit: a.unit, quantity: num(qty) || 1, unit_price: 0 }
+          : { source: 'LIBRE', rubro: rubro ? String(rubro) : '', description: String(desc ?? ''), unit: unit ? String(unit) : 'gl', quantity: num(qty) || 1, unit_price: num(precio) }
+      })
+      if (!items.length) return toast('No se encontraron ítems en el archivo. Revisa que use la plantilla.', true)
+      nuevo(items); toast(items.length + ' ítem(s) cargados en un borrador. Elige la obra y guarda.')
+    } catch (err) { toast('No se pudo leer el Excel: ' + err.message, true) }
   }
   const set = p => setD({ ...d, ...p })
   const setItem = (i, p) => set({ items: d.items.map((x, j) => (j === i ? { ...x, ...p } : x)) })
@@ -59,7 +76,9 @@ export default function Presupuestos({ canEdit, canDelete, toast }) {
 
   if (!d) return (
     <div>
-      {canEdit && <div className="mb-4 flex"><button className="btn btn-dark ml-auto flex items-center gap-1.5" onClick={nuevo}><Plus size={16} />Nuevo presupuesto</button></div>}
+      {canEdit && <div className="mb-4 flex flex-wrap items-center justify-end gap-2"><a className="mr-auto text-xs text-slate-400 underline" href="/plantillas/plantilla-presupuesto.xlsx" download>Plantilla de Excel</a>
+        <label className="btn flex cursor-pointer items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50"><FileSpreadsheet size={16} />Importar Excel<input type="file" accept=".xlsx" className="hidden" onChange={importar} /></label>
+        <button className="btn btn-dark flex items-center gap-1.5" onClick={() => nuevo()}><Plus size={16} />Nuevo presupuesto</button></div>}
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-100 bg-slate-50 text-left text-xs font-medium text-slate-500"><tr><th className="px-4 py-3">Número</th><th className="px-4 py-3">Obra</th><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3 text-right">Total (IVA incl.)</th></tr></thead>

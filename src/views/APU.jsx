@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FileSpreadsheet, Plus, Trash2 } from 'lucide-react'
-import readXlsxFile from 'read-excel-file'
+import { Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useTable } from '../hooks/useTable'
 import { apuCost } from '../lib/apu'
@@ -33,28 +32,6 @@ export default function APU({ canEdit, canDelete, toast }) {
     if (!error) setD(null)
     toast(error ? error.message : 'Rubro eliminado', !!error)
   }
-  const importar = async e => {
-    const f = e.target.files[0]; e.target.value = ''
-    if (!f) return
-    try {
-      const rows = (await readXlsxFile(f)).slice(1) // se omite la fila de encabezado
-      const porCodigo = Object.fromEntries(insumos.filter(i => i.code).map(i => [String(i.code).trim().toUpperCase(), i.id]))
-      const rubros = {}, faltan = new Set()
-      rows.forEach(([code, desc, unit, ind, util, icode, rend]) => {
-        if (!code || !desc) return
-        const k = String(code).trim()
-        const R = rubros[k] ||= { code: k, description: String(desc).trim(), unit: unit ? String(unit).trim() : null, indirects_pct: Number(ind) || 0, profit_pct: Number(util) || 0, items: [] }
-        if (!icode) return
-        const id = porCodigo[String(icode).trim().toUpperCase()]
-        if (id) R.items.push({ insumo_id: id, yield: Number(rend) || 0 }); else faltan.add(String(icode).trim())
-      })
-      const lista = Object.values(rubros)
-      if (!lista.length) return toast('No se encontraron rubros en el archivo. Revisa que use la plantilla.', true)
-      const { error } = await supabase.from('sgo_apu').upsert(lista, { onConflict: 'code' })
-      if (error) return toast(error.message, true)
-      toast(lista.length + ' rubro(s) importado(s)' + (faltan.size ? '. Insumos no encontrados: ' + [...faltan].slice(0, 6).join(', ') : ''), faltan.size > 0)
-    } catch (err) { toast('No se pudo leer el Excel: ' + err.message, true) }
-  }
   const nuevo = () => setD({ code: 'APU-' + String(apus.length + 1).padStart(2, '0'), description: '', unit: 'm3', items: [], indirects_pct: 10, profit_pct: 10 })
   const list = apus.filter(a => (a.code + a.description).toLowerCase().includes(q.toLowerCase()))
 
@@ -64,9 +41,7 @@ export default function APU({ canEdit, canDelete, toast }) {
         <div className="mb-3 flex gap-2">
           <input className="inp" placeholder="Buscar rubro…" value={q} onChange={e => setQ(e.target.value)} />
           {canEdit && <button className="btn btn-dark flex shrink-0 items-center gap-1.5" onClick={nuevo}><Plus size={16} />Nuevo</button>}
-          {canEdit && <label title="Importar desde Excel" className="btn flex shrink-0 cursor-pointer items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50"><FileSpreadsheet size={16} />Excel<input type="file" accept=".xlsx" className="hidden" onChange={importar} /></label>}
         </div>
-        {canEdit && <p className="mb-2 text-xs text-slate-400">¿Tienes tus APU en Excel? <a className="underline" href="/plantillas/plantilla-apu.xlsx" download>Descarga la plantilla</a></p>}
         <div className="space-y-2">
           {list.map(a => (
             <div key={a.id} onClick={() => setD({ ...a, items: a.items || [] })} className={'cursor-pointer rounded-xl border bg-white p-4 hover:border-slate-300 ' + (d?.id === a.id ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200')}>

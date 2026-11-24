@@ -1,14 +1,11 @@
 import { useState } from 'react'
 import { supabase, SUPABASE_URL } from '../lib/supabase'
 import { useTable } from '../hooks/useTable'
-import { CATS } from './cruds'
+import readXlsxFile from 'read-excel-file'
+import { Download, Upload } from 'lucide-react'
+import { IMPORTS } from '../lib/importers'
 
-const TABS = [['gen', 'Datos e Impuestos'], ['sync', 'Sincronización Nube'], ['pdf', 'Diseño PDF'], ['users', 'Usuarios y Roles'], ['csv', 'Importación CSV']]
-const IMPORTS = {
-  clients: { label: 'Clientes', table: 'sgo_clients', cols: ['name', 'ruc', 'contact', 'phone', 'email', 'address'] },
-  suppliers: { label: 'Proveedores', table: 'sgo_suppliers', cols: ['name', 'ruc', 'category', 'contact', 'phone', 'email'] },
-  insumos: { label: 'Insumos', table: 'sgo_insumos', cols: ['code', 'name', 'category', 'unit', 'price_pyg'] }
-}
+const TABS = [['gen', 'Datos e Impuestos'], ['sync', 'Sincronización Nube'], ['pdf', 'Diseño PDF'], ['users', 'Usuarios y Roles'], ['import', 'Importación de datos']]
 const Card = ({ children }) => <div className="max-w-3xl rounded-xl border border-slate-200 bg-white p-6">{children}</div>
 const fld = (l, n, v, t = 'text', wide = false) => (
   <label key={n} className={'block ' + (wide ? 'sm:col-span-2' : '')}><span className="mb-1 block text-xs font-medium text-slate-500">{l}</span>
@@ -19,10 +16,13 @@ export default function Configuracion({ isAdmin, canEdit, me, live, toast }) {
   const [tab, setTab] = useState('gen')
   const { rows } = useTable('sgo_config')
   const { rows: users } = useTable('sgo_users')
+  const { rows: clients } = useTable('sgo_clients')
+  const { rows: suppliers } = useTable('sgo_suppliers')
+  const { rows: insumos } = useTable('sgo_insumos')
+  const { rows: apus } = useTable('sgo_apu')
+  const { rows: obras } = useTable('sgo_obras')
   const cfg = rows[0]
-  const [target, setTarget] = useState('clients')
-  const [text, setText] = useState('')
-  const [header, setHeader] = useState(true)
+  const [res, setRes] = useState({})
   if (!cfg) return <p className="text-sm text-slate-400">Cargando…</p>
   const year = String(new Date().getFullYear())
 
@@ -40,21 +40,17 @@ export default function Configuracion({ isAdmin, canEdit, me, live, toast }) {
     const { error } = await supabase.from('sgo_users').update(patch).eq('id', u.id)
     if (error) toast(error.message, true)
   }
-  const importar = async () => {
-    const T = IMPORTS[target]
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(header ? 1 : 0)
-    const data = lines.map(l => {
-      const p = l.split(',').map(x => x.trim()), o = {}
-      T.cols.forEach((c, i) => { o[c] = p[i] || null })
-      if (o.category && !CATS.includes(o.category)) o.category = null
-      if (target === 'insumos') o.price_pyg = Number(String(o.price_pyg || '').replace(/\D/g, '')) || 0
-      return o
-    }).filter(o => o[T.cols[target === 'insumos' ? 1 : 0]])
-    if (!data.length) return toast('No hay filas para importar', true)
-    const q = target === 'insumos' ? supabase.from(T.table).upsert(data, { onConflict: 'code' }) : supabase.from(T.table).insert(data)
-    const { error } = await q
-    if (error) return toast(error.message, true)
-    setText(''); toast(data.length + ' filas importadas')
+  const ctx = { clients, suppliers, insumos, apus, obras }
+  const counts = { clients: clients.length, suppliers: suppliers.length, insumos: insumos.length, apu: apus.length, obras: obras.length }
+  const subir = async (k, e) => {
+    const f = e.target.files[0]; e.target.value = ''
+    if (!f) return
+    setRes(r => ({ ...r, [k]: { text: 'Procesando…' } }))
+    try {
+      const rows = (await readXlsxFile(f)).slice(1) // se omite la fila de encabezado
+      const text = await IMPORTS[k].run(rows, ctx)
+      setRes(r => ({ ...r, [k]: { text } })); toast('Importación terminada')
+    } catch (err) { setRes(r => ({ ...r, [k]: { text: 'No se pudo importar: ' + err.message, err: true } })) }
   }
 
   return (
@@ -106,13 +102,21 @@ export default function Configuracion({ isAdmin, canEdit, me, live, toast }) {
             </div></div>))}
           {!users.length && <p className="py-6 text-center text-slate-400">Sin usuarios visibles</p>}</div></Card>}
 
-      {tab === 'csv' && <Card><div className="space-y-3 text-sm">
-        <div className="flex flex-wrap gap-2">{Object.entries(IMPORTS).map(([k, v]) => <button key={k} onClick={() => setTarget(k)} className={'btn ' + (target === k ? 'btn-dark' : 'border border-slate-200 hover:bg-slate-50')}>{v.label}</button>)}</div>
-        <p className="text-slate-500">Pega una fila por línea, con los datos separados por comas, en este orden:<br /><code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{IMPORTS[target].cols.join(', ')}</code>{target === 'insumos' && <><br />Si el código ya existe, se actualiza su precio. Categorías válidas: {CATS.join(', ')}.</>}</p>
-        <textarea className="inp h-44 font-mono text-xs" value={text} onChange={e => setText(e.target.value)} disabled={!canEdit} placeholder={IMPORTS[target].cols.join(',') + '\n…'} />
-        <div className="flex items-center justify-between"><label className="flex items-center gap-2 text-slate-600"><input type="checkbox" checked={header} onChange={e => setHeader(e.target.checked)} />La primera línea es encabezado</label>
-          {canEdit && <button className="btn btn-dark" onClick={importar}>Importar</button>}</div>
-      </div></Card>}
+      {tab === 'import' && <div className="max-w-3xl space-y-3">
+        <p className="text-sm text-slate-500">Carga tus datos desde Excel siguiendo el orden de arriba hacia abajo, porque cada paso usa datos del anterior. En cada uno: descarga la plantilla, complétala y súbela.</p>
+        {Object.entries(IMPORTS).map(([k, T], i) => (
+          <div key={k} className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-semibold text-white">{i + 1}</span>
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{T.label} <span className="font-normal text-slate-400">· {counts[k]} registrados</span></p><p className="text-xs text-slate-500">{T.desc}</p></div>
+              <a href={'/plantillas/' + T.file} download className="btn flex items-center gap-1.5 border border-slate-200 hover:bg-slate-50"><Download size={14} />Plantilla</a>
+              {canEdit && <label className="btn btn-dark flex cursor-pointer items-center gap-1.5"><Upload size={14} />Subir Excel<input type="file" accept=".xlsx" className="hidden" onChange={e => subir(k, e)} /></label>}
+            </div>
+            {res[k] && <p className={'mt-3 rounded-lg p-2.5 text-xs ' + (res[k].err ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700')}>{res[k].text}</p>}
+          </div>
+        ))}
+        <p className="text-xs text-slate-400">Los presupuestos antiguos se importan desde el módulo Presupuestos, porque primero eliges la obra y revisas el borrador.</p>
+      </div>}
     </div>
   )
 }
